@@ -10,4 +10,5 @@ find_package( OpenCV REQUIRED )
 add_executable(head_pose_estimation head_pose_estimation.cpp)
 target_link_libraries(head_pose_estimation ${OpenCV_LIBS} dlib::dlib)
 
-
+add_executable(gl_model gl_model.cpp)
+target_link_libraries(gl_model ${OpenCV_LIBS} X11 Xi Xmu glut GL GLU m)

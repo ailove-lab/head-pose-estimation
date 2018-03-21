@@ -59,10 +59,10 @@ int main()
 
     //reproject 3D points world coordinate axis to verify result pose
     std::vector<cv::Point3d> reprojectsrc;
-    reprojectsrc.push_back(cv::Point3d(10.0, 10.0, 10.0));
-    reprojectsrc.push_back(cv::Point3d(10.0, 10.0, -10.0));
-    reprojectsrc.push_back(cv::Point3d(10.0, -10.0, -10.0));
-    reprojectsrc.push_back(cv::Point3d(10.0, -10.0, 10.0));
+    reprojectsrc.push_back(cv::Point3d( 10.0, 10.0, 10.0));
+    reprojectsrc.push_back(cv::Point3d( 10.0, 10.0, -10.0));
+    reprojectsrc.push_back(cv::Point3d( 10.0, -10.0, -10.0));
+    reprojectsrc.push_back(cv::Point3d( 10.0, -10.0, 10.0));
     reprojectsrc.push_back(cv::Point3d(-10.0, 10.0, 10.0));
     reprojectsrc.push_back(cv::Point3d(-10.0, 10.0, -10.0));
     reprojectsrc.push_back(cv::Point3d(-10.0, -10.0, -10.0));
@@ -81,8 +81,7 @@ int main()
     std::ostringstream outtext;
 
     //main loop
-    while (1)
-    {
+    while (1) {
         // Grab a frame
         cv::Mat temp;
         cap >> temp;
@@ -161,10 +160,9 @@ int main()
         //press esc to end
         cv::imshow("demo", temp);
         unsigned char key = cv::waitKey(1);
-        if (key == 27)
-            {
+        if (key == 27) {
             break;
-            }
+        }
     }
 
     return 0;
