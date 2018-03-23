@@ -10,7 +10,10 @@ include(~/lib/dlib-19.10/dlib/cmake)
 find_package( OpenCV REQUIRED )
 
 add_executable(head_pose_estimation head_pose_estimation.cpp)
-target_link_libraries(head_pose_estimation ${OpenCV_LIBS} dlib::dlib)
+target_link_libraries(head_pose_estimation ${OpenCV_LIBS} dlib::dlib zmq)
+
+add_executable(zmq_client zmq_client.cpp)
+target_link_libraries(zmq_client  zmq)
 
 add_executable(gl_model gl_model.cpp)
 target_link_libraries(gl_model ${OpenCV_LIBS} X11 Xi Xmu glut GL GLU m)

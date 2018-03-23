@@ -1,12 +1,16 @@
+
 #include <iostream>
 #include <dlib/opencv.h>
+
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+
 #include <dlib/image_processing/frontal_face_detector.h>
 #include <dlib/image_processing/render_face_detections.h>
 #include <dlib/image_processing.h>
 
+#include <zmq.hpp>
 
 using std::vector;
 
@@ -20,14 +24,21 @@ using cv::Mat;
 double K[9] = { 6.5308391993466671e+002, 0.0, 3.1950000000000000e+002, 0.0, 6.5308391993466671e+002, 2.3950000000000000e+002, 0.0, 0.0, 1.0 };
 double D[5] = { 7.0834633684407095e-002, 6.9140193737175351e-002, 0.0, 0.0, -1.3073460323689292e+000 };
 
-int main()
-{
+int main() {
+
     //open cam
     cv::VideoCapture cap(0);
     if (!cap.isOpened()) {
         std::cout << "Unable to connect to camera" << std::endl;
         return EXIT_FAILURE;
     }
+
+    // zmq server for result broadcasting
+    zmq::context_t context(1);
+    zmq::socket_t  publisher(context, ZMQ_PUB);
+    publisher.bind("tcp://*:5555");
+    //publisher.bind("ipc://head-pose.ipc");
+    
     //Load face detection and pose estimation models (dlib).
     dlib::frontal_face_detector detector = dlib::get_frontal_face_detector();
     dlib::shape_predictor predictor;
@@ -150,13 +161,9 @@ int main()
                 dist_coeffs,
                 reproject_dst);
 
-            //draw axis
-            int indices[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
-            for(int i=0; i<12; i++) 
-                cv::line(temp, reproject_dst[indices[i][0]], reproject_dst[indices[i][1]], color);
-
             //calc euler angle
             cv::Rodrigues(rotation_vec, rotation_mat);
+
             cv::hconcat(rotation_mat, translation_vec, pose_mat);
             cv::decomposeProjectionMatrix(
                 pose_mat, 
@@ -167,6 +174,52 @@ int main()
                 cv::noArray(), 
                 cv::noArray(), 
                 euler_angle);
+            
+            // http://answers.opencv.org/question/23089/opencv-opengl-proper-camera-pose-using-solvepnp/
+            // Build view mattrix
+            Mat view_mat = Mat::zeros(4,4, CV_64FC1);
+            for(unsigned int row=0; row<3; ++row) {
+               for(unsigned int col=0; col<3; ++col) {
+                  view_mat.at<double>(row, col) = rotation_mat.at<double>(row, col);
+               }
+               view_mat.at<double>(row, 3) = translation_vec.at<double>(row, 0);
+            }
+            view_mat.at<double>(3, 3) = 1.0f;
+
+            // invert axis
+            Mat cv2gl = Mat::zeros(4, 4, CV_64FC1);
+            cv2gl.at<double>(0, 0) =  1.0f;
+            cv2gl.at<double>(1, 1) = -1.0f; // Invert the y axis
+            cv2gl.at<double>(2, 2) = -1.0f; // invert the z axis
+            cv2gl.at<double>(3, 3) =  1.0f;
+            view_mat = cv2gl * view_mat;
+
+            // transpose mattrix
+            // Mat gl_mat = cv::Mat::zeros(4, 4, CV_64FC1);
+            // cv::transpose(view_mat , gl_mat);
+
+            char buf[1024];
+            int n = 0;
+            n+= sprintf(&buf[n], "E[%f,%f,%f]\n", 
+                euler_angle.at<double>(0), 
+                euler_angle.at<double>(1), 
+                euler_angle.at<double>(2));
+            
+            n += sprintf(&buf[n], "G[");
+            for(int i=0; i<16; i++)
+                n += sprintf(&buf[n], "%f,", view_mat.at<double>(i/4, i%4)); 
+            n += sprintf(&buf[--n], "]\n");
+                
+            int l = strlen(buf);
+            zmq::message_t msg(l);
+            std::memcpy(msg.data(), buf, l);
+            publisher.send(msg);
+
+
+            //draw axis
+            int indices[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+            for(int i=0; i<12; i++) 
+                cv::line(temp, reproject_dst[indices[i][0]], reproject_dst[indices[i][1]], color);
 
             //show angle result
             outtext << "X: " << std::setprecision(3) << euler_angle.at<double>(0);
@@ -182,7 +235,9 @@ int main()
             outtext.str("");
 
             image_pts.clear();
-            }
+
+            
+        }
 
         //press esc to end
         cv::imshow("demo", temp);
