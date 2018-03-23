@@ -17,3 +17,12 @@ target_link_libraries(zmq_client  zmq)
 
 add_executable(gl_model gl_model.cpp)
 target_link_libraries(gl_model ${OpenCV_LIBS} X11 Xi Xmu glut GL GLU m)
+
+find_package(PkgConfig REQUIRED)
+find_package(OpenGL REQUIRED)
+pkg_search_module(GLFW REQUIRED glfw3)
+include_directories(${GLFW_INCLUDE_DIRS} ${OPENGL_INCLUDE_DIR})
+add_executable(glfw_client glad.c glfw_client.c)
+target_link_libraries(glfw_client m ${GLFW_LIBRARIES})
+
+

@@ -24,6 +24,82 @@ using cv::Mat;
 double K[9] = { 6.5308391993466671e+002, 0.0, 3.1950000000000000e+002, 0.0, 6.5308391993466671e+002, 2.3950000000000000e+002, 0.0, 0.0, 1.0 };
 double D[5] = { 7.0834633684407095e-002, 6.9140193737175351e-002, 0.0, 0.0, -1.3073460323689292e+000 };
 
+// fill in 3D ref points(world coordinates), 
+// model referenced from http://aifi.isr.uc.pt/Downloads/OpenGL/glAnthropometric3DModel.cpp
+vector<Point3d> object_pts = {
+   { 6.825897,  6.760612, 4.402142}, //#33 left brow left corner
+   { 1.330353,  7.122144, 6.903745}, //#29 left brow right corner
+   {-1.330353,  7.122144, 6.903745}, //#34 right brow left corner
+   {-6.825897,  6.760612, 4.402142}, //#38 right brow right corner
+   { 5.311432,  5.485328, 3.987654}, //#13 left eye left corner
+   { 1.789930,  5.393625, 4.413414}, //#17 left eye right corner
+   {-1.789930,  5.393625, 4.413414}, //#25 right eye left corner
+   {-5.311432,  5.485328, 3.987654}, //#21 right eye right corner
+   { 2.005628,  1.409845, 6.165652}, //#55 nose left corner
+   {-2.005628,  1.409845, 6.165652}, //#49 nose right corner
+   { 2.774015, -2.080775, 5.048531}, //#43 mouth left corner
+   {-2.774015, -2.080775, 5.048531}, //#39 mouth right corner
+   { 0.000000, -3.116408, 6.097667}, //#45 mouth central bottom corner
+   { 0.000000, -7.415691, 4.070434}, //#6 chin corner
+};
+
+//reproject 3D points world coordinate axis to verify result pose
+vector<Point3d> reprojectsrc = {
+    { 10.0,  10.0,  10.0},
+    { 10.0,  10.0, -10.0},
+    { 10.0, -10.0, -10.0},
+    { 10.0, -10.0,  10.0},
+    {-10.0,  10.0,  10.0},
+    {-10.0,  10.0, -10.0},
+    {-10.0, -10.0, -10.0},
+    {-10.0, -10.0,  10.0},
+};
+    
+// debug color
+Scalar color = Scalar(0,0,255); 
+
+//fill in cam intrinsics and distortion coefficients
+Mat cam_matrix  = Mat(3, 3, CV_64FC1, K);
+Mat dist_coeffs = Mat(5, 1, CV_64FC1, D);
+
+//2D ref points(image coordinates), referenced from detected facial feature
+vector<Point2d> image_pts;
+
+//result
+Mat rotation_vec;                           //3 x 1
+Mat rotation_mat;                           //3 x 3 R
+Mat translation_vec;                        //3 x 1 T
+Mat pose_mat    = Mat(3, 4, CV_64FC1);      //3 x 4 R | T
+Mat euler_angle = Mat(3, 1, CV_64FC1);
+
+//reprojected 2D points
+vector<Point2d> reproject_dst(8);
+
+//temp buf for decomposeProjectionMatrix()
+Mat out_intrinsics  = Mat(3, 3, CV_64FC1);
+Mat out_rotation    = Mat(3, 3, CV_64FC1);
+Mat out_translation = Mat(3, 1, CV_64FC1);
+
+// fill in 2D ref points, annotations follow https://ibug.doc.ic.ac.uk/resources/300-W/
+// 17 left brow left 
+// 21 left brow right 
+// 22 right brow left 
+// 26 right brow right 
+// 36 left eye left 
+// 39 left eye right 
+// 42 right eye left 
+// 45 right eye right 
+// 31 nose left 
+// 35 nose right 
+// 48 mouth left 
+// 54 mouth right 
+// 57 mouth central bottom 
+//  8 chin 
+int part_ids[14] = { 17,  21,  22,  26,  36,  39,  42,  45,  31,  35,  48,  54,  57,  8 };
+
+//cube edges
+int edges[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+
 int main() {
 
     //open cam
@@ -38,66 +114,11 @@ int main() {
     zmq::socket_t  publisher(context, ZMQ_PUB);
     publisher.bind("tcp://*:5555");
     //publisher.bind("ipc://head-pose.ipc");
-    
+
     //Load face detection and pose estimation models (dlib).
     dlib::frontal_face_detector detector = dlib::get_frontal_face_detector();
     dlib::shape_predictor predictor;
     dlib::deserialize("shape_predictor_68_face_landmarks.dat") >> predictor;
-
-    //fill in cam intrinsics and distortion coefficients
-    Mat cam_matrix  = Mat(3, 3, CV_64FC1, K);
-    Mat dist_coeffs = Mat(5, 1, CV_64FC1, D);
-
-    // debug color
-    Scalar color = Scalar(0,0,255); 
-
-    //fill in 3D ref points(world coordinates), model referenced from http://aifi.isr.uc.pt/Downloads/OpenGL/glAnthropometric3DModel.cpp
-    vector<Point3d> object_pts = {
-       { 6.825897,  6.760612, 4.402142}, //#33 left brow left corner
-       { 1.330353,  7.122144, 6.903745}, //#29 left brow right corner
-       {-1.330353,  7.122144, 6.903745}, //#34 right brow left corner
-       {-6.825897,  6.760612, 4.402142}, //#38 right brow right corner
-       { 5.311432,  5.485328, 3.987654}, //#13 left eye left corner
-       { 1.789930,  5.393625, 4.413414}, //#17 left eye right corner
-       {-1.789930,  5.393625, 4.413414}, //#25 right eye left corner
-       {-5.311432,  5.485328, 3.987654}, //#21 right eye right corner
-       { 2.005628,  1.409845, 6.165652}, //#55 nose left corner
-       {-2.005628,  1.409845, 6.165652}, //#49 nose right corner
-       { 2.774015, -2.080775, 5.048531}, //#43 mouth left corner
-       {-2.774015, -2.080775, 5.048531}, //#39 mouth right corner
-       { 0.000000, -3.116408, 6.097667}, //#45 mouth central bottom corner
-       { 0.000000, -7.415691, 4.070434}, //#6 chin corner
-    };
-    //2D ref points(image coordinates), referenced from detected facial feature
-    vector<Point2d> image_pts;
-
-    //result
-    Mat rotation_vec;                           //3 x 1
-    Mat rotation_mat;                           //3 x 3 R
-    Mat translation_vec;                        //3 x 1 T
-    Mat pose_mat = Mat(3, 4, CV_64FC1);     //3 x 4 R | T
-    Mat euler_angle = Mat(3, 1, CV_64FC1);
-
-    //reproject 3D points world coordinate axis to verify result pose
-    vector<Point3d> reprojectsrc = {
-        { 10.0,  10.0,  10.0},
-        { 10.0,  10.0, -10.0},
-        { 10.0, -10.0, -10.0},
-        { 10.0, -10.0,  10.0},
-        {-10.0,  10.0,  10.0},
-        {-10.0,  10.0, -10.0},
-        {-10.0, -10.0, -10.0},
-        {-10.0, -10.0,  10.0},
-    };
-
-    //reprojected 2D points
-    vector<Point2d> reproject_dst;
-    reproject_dst.resize(8);
-
-    //temp buf for decomposeProjectionMatrix()
-    Mat out_intrinsics  = Mat(3, 3, CV_64FC1);
-    Mat out_rotation    = Mat(3, 3, CV_64FC1);
-    Mat out_translation = Mat(3, 1, CV_64FC1);
 
     //text on screen
     std::ostringstream outtext;
@@ -123,22 +144,6 @@ int main() {
                 cv::circle(temp, cv::Point(shape.part(i).x(), shape.part(i).y()), 2, color, -1);
             }
 
-            // fill in 2D ref points, annotations follow https://ibug.doc.ic.ac.uk/resources/300-W/
-            // 17 left brow left 
-            // 21 left brow right 
-            // 22 right brow left 
-            // 26 right brow right 
-            // 36 left eye left 
-            // 39 left eye right 
-            // 42 right eye left 
-            // 45 right eye right 
-            // 31 nose left 
-            // 35 nose right 
-            // 48 mouth left 
-            // 54 mouth right 
-            // 57 mouth central bottom 
-            //  8 chin 
-            int part_ids[14] = { 17,  21,  22,  26,  36,  39,  42,  45,  31,  35,  48,  54,  57,  8 };
             for(int i=0; i<14; i++)
                 image_pts.push_back(
                     Point2d(shape.part(part_ids[i]).x(), shape.part(part_ids[i]).y()));
@@ -174,7 +179,8 @@ int main() {
                 cv::noArray(), 
                 cv::noArray(), 
                 euler_angle);
-            
+
+            // Convert to GL
             // http://answers.opencv.org/question/23089/opencv-opengl-proper-camera-pose-using-solvepnp/
             // Build view mattrix
             Mat view_mat = Mat::zeros(4,4, CV_64FC1);
@@ -195,31 +201,18 @@ int main() {
             view_mat = cv2gl * view_mat;
 
             // transpose mattrix
-            // Mat gl_mat = cv::Mat::zeros(4, 4, CV_64FC1);
-            // cv::transpose(view_mat , gl_mat);
+            Mat gl_mat = cv::Mat::zeros(4, 4, CV_64FC1);
+            cv::transpose(view_mat , gl_mat);
 
-            char buf[1024];
-            int n = 0;
-            n+= sprintf(&buf[n], "E[%f,%f,%f]\n", 
-                euler_angle.at<double>(0), 
-                euler_angle.at<double>(1), 
-                euler_angle.at<double>(2));
-            
-            n += sprintf(&buf[n], "G[");
-            for(int i=0; i<16; i++)
-                n += sprintf(&buf[n], "%f,", view_mat.at<double>(i/4, i%4)); 
-            n += sprintf(&buf[--n], "]\n");
-                
-            int l = strlen(buf);
-            zmq::message_t msg(l);
-            std::memcpy(msg.data(), buf, l);
+            // broadcast values throught ZMQ
+            // 4x4 8byte floats = 128 bytes 
+            zmq::message_t msg(128);
+            std::memcpy(msg.data(), &gl_mat.at<double>(0,0), 128);
             publisher.send(msg);
 
-
             //draw axis
-            int indices[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
             for(int i=0; i<12; i++) 
-                cv::line(temp, reproject_dst[indices[i][0]], reproject_dst[indices[i][1]], color);
+                cv::line(temp, reproject_dst[edges[i][0]], reproject_dst[edges[i][1]], color);
 
             //show angle result
             outtext << "X: " << std::setprecision(3) << euler_angle.at<double>(0);
