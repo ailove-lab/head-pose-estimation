@@ -23,6 +23,6 @@ find_package(OpenGL REQUIRED)
 pkg_search_module(GLFW REQUIRED glfw3)
 include_directories(${GLFW_INCLUDE_DIRS} ${OPENGL_INCLUDE_DIR})
 add_executable(glfw_client glad.c glfw_client.c)
-target_link_libraries(glfw_client m ${GLFW_LIBRARIES})
+target_link_libraries(glfw_client m ${GLFW_LIBRARIES} zmq)
 
 

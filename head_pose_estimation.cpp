@@ -208,6 +208,7 @@ int main() {
             // 4x4 8byte floats = 128 bytes 
             zmq::message_t msg(128);
             std::memcpy(msg.data(), &gl_mat.at<double>(0,0), 128);
+            // double* d = (double*)msg.data(); for (int i=0; i<16; i++) printf("%.2f ", d[i]); printf("\n");
             publisher.send(msg);
 
             //draw axis
