@@ -142,25 +142,22 @@ int main(void) {
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
  
-        //double msg[16];
-        //int s = zmq_recv(sub, (void*)msg, 128, 0);
-        //for(int i=0; i<16; i++) m[i%4][i/4] = (float)msg[i];
+        // mat4x4_identity(m);
+        // mat4x4_rotate_Z(m, m, (float) glfwGetTime());
+        // mat4x4_rotate_X(m, m, (float) glfwGetTime()*0.3);
+        // mat4x4_perspective(p, 3.14159/2.0, ratio, 0.001, 100.0);
 
-        mat4x4_identity(m);
-        mat4x4_rotate_Z(m, m, (float) glfwGetTime());
-        mat4x4_rotate_X(m, m, (float) glfwGetTime()*0.3);
+        // mat4x4_look_at(v, 
+        //     (vec3){0.0, 2.0, 2.0}, // eye  
+        //     (vec3){0.0, 0.0, 0.0}, // target
+        //     (vec3){0.0, 1.0, 0.0});// up
+        // mat4x4_mul(p, p, v);
+        // mat4x4_mul(mvp, p, m);
 
-        mat4x4_perspective(p, 3.14159/2.0, ratio, 0.001, 100.0);
-
-        mat4x4_look_at(v, 
-            (vec3){0.0, 2.0, 2.0}, // eye  
-            (vec3){0.0, 0.0, 0.0}, // target
-            (vec3){0.0, 1.0, 0.0});// up
-        mat4x4_mul(p, p, v);
-        mat4x4_mul(mvp, p, m);
-
+        double msg[16];
+        int s = zmq_recv(sub, (void*)msg, 128, 0);
+        for(int i=0; i<16; i++) mvp[i/4][i%4] = (float)msg[i];
         for(int i=0; i<16; i++) printf("%.2f ", mvp[i/4][i%4]); printf("\n");
-       
 
         glUseProgram(program);
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) mvp);
