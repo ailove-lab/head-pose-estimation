@@ -175,17 +175,17 @@ int main(void) {
         //mat4x4_rotate_Y(m, m, (float) glfwGetTime());
         //mat4x4_rotate_X(m, m, (float) glfwGetTime()*0.3);
 
-        // double msg[16];
-        // int s = zmq_recv(sub, (void*)msg, 128, 0);
-        // for(int i=0; i<16; i++) printf("%.2f ", msg[i]); printf("\n");
-        // for(int i=0; i<16; i++) m[i%4][i/4] = (float)msg[i];
+        double msg[16];
+        int s = zmq_recv(sub, (void*)msg, 128, 0);
+        for(int i=0; i<16; i++) printf("%.2f%c", msg[i], (i+1)%4?' ':'\n'); printf("\n");
+        for(int i=0; i<16; i++) m[i%4][i/4] = (float)msg[i];
 
-        mat4x4_perspective(p, 3.14159/2.0, ratio, 0.001, 100.0);
+        mat4x4_perspective(p, 3.14159*0.5, ratio, 0.001, 100.0);
 
         mat4x4_look_at(v, 
-            (vec3){0.0, 5.0, 20.0}, // eye  
-            (vec3){0.0, 0.0,  0.0}, // target
-            (vec3){0.0, 1.0,  0.0});// up
+            (vec3){0.0, 0.0, 0.0}, // eye  
+            (vec3){0.0, 0.0,-1.0}, // target
+            (vec3){0.0, 1.0, 0.0});// up
         mat4x4_mul(p, p, v);
         mat4x4_mul(mvp, p, m);
 

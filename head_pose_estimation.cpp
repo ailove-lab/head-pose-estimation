@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <dlib/opencv.h>
 
@@ -186,7 +185,7 @@ int main() {
             // Convert to GL
             // http://answers.opencv.org/question/23089/opencv-opengl-proper-camera-pose-using-solvepnp/
             // Build view mattrix
-            Mat view_mat = Mat::zeros(4,4, CV_64FC1);
+            Mat view_mat = Mat::eye(4, 4, CV_64FC1);
             // for(unsigned int row=0; row<3; ++row) {
             //    for(unsigned int col=0; col<3; ++col) {
             //       view_mat.at<double>(row, col) = rotation_mat.at<double>(row, col);
@@ -194,9 +193,10 @@ int main() {
             //    view_mat.at<double>(row, 3) = translation_vec.at<double>(row, 0);
             // }
             // view_mat.at<double>(3, 3) = 1.0f;
+
             rotation_mat.copyTo(view_mat(Rect(0, 0, 3, 3)));
             translation_vec.copyTo(view_mat(Rect(3,0,1,3)));
-            view_mat.at<double>(3,3) = 1.0f;
+            // view_mat.at<double>(3,3) = 1.0f;
 
             cout.precision(3);            
             cout << "R" <<  rotation_mat << endl;
@@ -204,24 +204,23 @@ int main() {
             cout << "V" <<  view_mat << endl;
 
             // invert axis
-            Mat cv2gl = Mat::zeros(4, 4, CV_64FC1);
-            cv2gl.at<double>(0, 0) =  1.0f;
-            cv2gl.at<double>(1, 1) = -1.0f; // Invert the y axis
-            cv2gl.at<double>(2, 2) = -1.0f; // invert the z axis
-            cv2gl.at<double>(3, 3) =  1.0f;
-            view_mat = cv2gl * view_mat;
+            // Mat cv2gl = Mat::zeros(4, 4, CV_64FC1);
+            // cv2gl.at<double>(0, 0) =  1.0f;
+            // cv2gl.at<double>(1, 1) =  1.0f; // Invert the y axis
+            // cv2gl.at<double>(2, 2) =  1.0f; // invert the z axis
+            // cv2gl.at<double>(3, 3) =  1.0f;
+            // view_mat = cv2gl * view_mat;
 
             // transpose mattrix
-            Mat gl_mat = cv::Mat::zeros(4, 4, CV_64FC1);
-            cv::transpose(view_mat , gl_mat);
-            // cv::invert(gl_mat, gl_mat);
+            // Mat gl_mat = cv::Mat::zeros(4, 4, CV_64FC1);
+            // cv::transpose(view_mat , gl_mat);
 
             // broadcast values throught ZMQ
             // 4x4 8byte floats = 128 bytes 
-            // zmq::message_t msg(128);
-            // std::memcpy(msg.data(), &gl_mat.at<double>(0,0), 128);
-            // double* d = (double*)msg.data(); for (int i=0; i<16; i++) printf("%.2f ", d[i]); printf("\n");
-            // publisher.send(msg);
+            zmq::message_t msg(128);
+            std::memcpy(msg.data(), &view_mat.at<double>(0,0), 128);
+            double* d = (double*)msg.data(); for (int i=0; i<16; i++) printf("%.2f%c", d[i],(i+1)%4?' ':'\n'); printf("\n");
+            publisher.send(msg);
 
             //draw axis
             //for(int i=0; i<12; i++) 
@@ -243,11 +242,12 @@ int main() {
         }
 
         //press esc to end
-        cv::imshow("demo", temp);
+        // cv::imshow("demo", temp);
         unsigned char key = cv::waitKey(1);
         if (key == 27) {
             break;
         }
+        sleep(1);
     }
 
     return 0;
