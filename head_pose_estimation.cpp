@@ -13,10 +13,13 @@
 #include <zmq.hpp>
 
 using std::vector;
+using std::cout;
+using std::endl;
 
 using cv::Point3d;
 using cv::Point2d;
 using cv::Scalar;
+using cv::Rect;
 using cv::Mat;
 
 //Intrisics can be calculated using opencv sample code under opencv/sources/samples/cpp/tutorial_code/calib3d
@@ -184,13 +187,21 @@ int main() {
             // http://answers.opencv.org/question/23089/opencv-opengl-proper-camera-pose-using-solvepnp/
             // Build view mattrix
             Mat view_mat = Mat::zeros(4,4, CV_64FC1);
-            for(unsigned int row=0; row<3; ++row) {
-               for(unsigned int col=0; col<3; ++col) {
-                  view_mat.at<double>(row, col) = rotation_mat.at<double>(row, col);
-               }
-               view_mat.at<double>(row, 3) = translation_vec.at<double>(row, 0);
-            }
-            view_mat.at<double>(3, 3) = 1.0f;
+            // for(unsigned int row=0; row<3; ++row) {
+            //    for(unsigned int col=0; col<3; ++col) {
+            //       view_mat.at<double>(row, col) = rotation_mat.at<double>(row, col);
+            //    }
+            //    view_mat.at<double>(row, 3) = translation_vec.at<double>(row, 0);
+            // }
+            // view_mat.at<double>(3, 3) = 1.0f;
+            rotation_mat.copyTo(view_mat(Rect(0, 0, 3, 3)));
+            translation_vec.copyTo(view_mat(Rect(3,0,1,3)));
+            view_mat.at<double>(3,3) = 1.0f;
+
+            cout.precision(3);            
+            cout << "R" <<  rotation_mat << endl;
+            cout << "T" <<  translation_vec << endl;
+            cout << "V" <<  view_mat << endl;
 
             // invert axis
             Mat cv2gl = Mat::zeros(4, 4, CV_64FC1);
@@ -203,30 +214,28 @@ int main() {
             // transpose mattrix
             Mat gl_mat = cv::Mat::zeros(4, 4, CV_64FC1);
             cv::transpose(view_mat , gl_mat);
+            // cv::invert(gl_mat, gl_mat);
 
             // broadcast values throught ZMQ
             // 4x4 8byte floats = 128 bytes 
-            zmq::message_t msg(128);
-            std::memcpy(msg.data(), &gl_mat.at<double>(0,0), 128);
+            // zmq::message_t msg(128);
+            // std::memcpy(msg.data(), &gl_mat.at<double>(0,0), 128);
             // double* d = (double*)msg.data(); for (int i=0; i<16; i++) printf("%.2f ", d[i]); printf("\n");
-            publisher.send(msg);
+            // publisher.send(msg);
 
             //draw axis
-            for(int i=0; i<12; i++) 
-                cv::line(temp, reproject_dst[edges[i][0]], reproject_dst[edges[i][1]], color);
-
-            //show angle result
-            outtext << "X: " << std::setprecision(3) << euler_angle.at<double>(0);
-            cv::putText(temp, outtext.str(), cv::Point(50, 40), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 0, 0));
-            outtext.str("");
-            
-            outtext << "Y: " << std::setprecision(3) << euler_angle.at<double>(1);
-            cv::putText(temp, outtext.str(), cv::Point(50, 60), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 0, 0));
-            outtext.str("");
-            
-            outtext << "Z: " << std::setprecision(3) << euler_angle.at<double>(2);
-            cv::putText(temp, outtext.str(), cv::Point(50, 80), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 0, 0));
-            outtext.str("");
+            //for(int i=0; i<12; i++) 
+            //    cv::line(temp, reproject_dst[edges[i][0]], reproject_dst[edges[i][1]], color);
+            ////show angle result
+            //outtext << "X: " << std::setprecision(3) << euler_angle.at<double>(0);
+            //cv::putText(temp, outtext.str(), cv::Point(50, 40), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 0, 0));
+            //outtext.str("");
+            //outtext << "Y: " << std::setprecision(3) << euler_angle.at<double>(1);
+            //cv::putText(temp, outtext.str(), cv::Point(50, 60), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 0, 0));
+            //outtext.str("");
+            //outtext << "Z: " << std::setprecision(3) << euler_angle.at<double>(2);
+            //cv::putText(temp, outtext.str(), cv::Point(50, 80), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 0, 0));
+            //outtext.str("");
 
             image_pts.clear();
 
