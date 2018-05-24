@@ -6,7 +6,7 @@ set(CACHE USE_SSE4_INSTRUCTIONS ON)
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS "-O3 -g")
 
-include(/usr/include/dlib/cmake)
+include(~/lab/dlib/dlib/cmake)
 find_package( OpenCV REQUIRED )
 
 add_executable(head_pose_estimation head_pose_estimation.cpp)
